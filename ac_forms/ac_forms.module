@@ -1,0 +1,81 @@
+<?php
+
+/*
+ * Implements hook_form_node_form_alter()
+ *
+ * Overrides the save button label with the node type
+ * If there are inline entity form fields, overrides the buttons with the node type to be added
+ *
+ */
+function ac_forms_form_node_form_alter(&$form, &$form_state, $form_id) {
+  // Override the save button on the node form to clarify the node type
+  if (isset($form['actions']['submit']['#value']) && isset($form['type']['#value'])) {
+    $form['actions']['submit']['#value'] = t('Save @s', array(
+        '@s'=>$form['type']['#value']));
+  }
+  //if inline entity form is enabled, look for more buttons to rewrite
+  if (module_exists('inline_entity_form')) {
+    $fields_info = field_info_instances('node', $form['type']['#value']);
+    foreach($fields_info as $field ) {
+      if (isset($field['widget']['type']) && $field['widget']['type'] == 'inline_entity_form') {
+        $field_name = $field['field_name'];
+        $lang = $form[$field_name]['#language'];
+        if (isset($form[$field_name][$lang]['actions']['bundle']['#value'])) {
+          $ief_type = $form[$field_name][$lang]['actions']['bundle']['#value'];
+          if (isset($form[$field_name][$lang]['actions']['ief_add']['#value'])) {
+            $form[$field_name][$lang]['actions']['ief_add']['#value'] = t('Add new @s', array(
+                '@s'=>$ief_type));
+          }
+          if (isset($form[$field_name][$lang]['actions']['ief_add_existing']['#value'])) {
+            $form[$field_name][$lang]['actions']['ief_add_existing']['#value'] = t('Add existing @s', array(
+                '@s'=>$ief_type));
+          }
+        }
+      }
+    }
+  }
+}
+
+/*
+ * Implements hook_inline_entity_form_entity_form_alter()
+ *
+ * Rewrites the button labels on an inline entity form to make it clearer for content editors
+ *
+ *
+ */
+function ac_forms_inline_entity_form_entity_form_alter(&$entity_form, &$form_state) {
+  // change the heading on the form for new nodes
+  if (isset($entity_form['#title'])) {
+    if ($entity_form['#entity']->is_new == TRUE) {
+      $entity_form['#title'] = t('Add new @s', array(
+          '@s'=>$entity_form['#bundle']));
+    }
+  }
+  // rewrite the save buttons with the node type
+  if (isset($entity_form['actions']['ief_add_save']['#value'])) {
+    $entity_form['actions']['ief_add_save']['#value'] = t('Save @s', array(
+        '@s'=>$entity_form['#bundle']));
+  } else if (isset($entity_form['actions']['ief_edit_save']['#value'])) {
+    $entity_form['actions']['ief_edit_save']['#value'] = t('Update @s', array(
+        '@s'=>$entity_form['#bundle']));
+  }
+}
+
+
+/*
+ * 
+ * 
+ * implmentation of inline_entity_form_reference_form_alter()
+ * 
+ * undocumented but useful hook in inline entity forms ;)
+ * 
+ * overrides the labels on the form if 'add existing' is clicked
+ * 
+ */
+
+function ac_forms_inline_entity_form_reference_form_alter(&$reference_form, $form_state) {
+  $action = check_plain($form_state['clicked_button']['#value']);
+  $reference_form['actions']['ief_reference_save']['#value'] = $action;
+  $reference_form['#title'] = $action;
+  $reference_form['entity_id']['#title'] = str_replace('Add existing', '', $action) . ' (autocomplete)';
+}
